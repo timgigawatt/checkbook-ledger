@@ -1,0 +1,93 @@
+:root {
+  /* surfaces */
+  --canvas: #f4f5f8;
+  --surface: #ffffff;
+  --surface-border: #e9ecf2;
+  --row-divider: #eef0f4;
+  --chip-bg: #eef1f6;
+
+  /* ink */
+  --ink: #1b1f27;
+  --ink-settled: #3a4252;
+  --ink-secondary: #667085;
+  --ink-tertiary: #98a2b3;
+  --ink-faint: #b9c1cd;
+
+  /* accent */
+  --accent: #2f5fbf;
+  --accent-deep: #24457f;
+  --accent-tint: #ebf1fc;
+  --accent-tint-border: #c6d7f3;
+  --accent-shadow: rgba(47, 95, 191, 0.35);
+
+  /* outstanding (uncleared) */
+  --outstanding-bg: #f6f9ff;
+  --outstanding-border: #e3ebfa;
+  --outstanding-selected: #ebf1fc;
+  --outstanding-selected-border: #dce7fa;
+  --dashed-ring: #93a8cc;
+
+  /* semantics */
+  --expense: #b42318;
+  --income: #067647;
+  --transfer-ink: #475467;
+  --balanced: #0e5c3f;
+  --balanced-soft: #a5d9c2;
+  --income-tint: #e7f5ee;
+  --reconcile-soft: #a9c0e8;
+
+  /* controls */
+  --seg-bg: #e7eaf0;
+  --toggle-off: #d3d9e3;
+
+  --check-on-disc: #ffffff;
+
+  --radius-card: 16px;
+  --radius-btn: 14px;
+  --shadow-fab: 0 8px 20px rgba(47, 95, 191, 0.4);
+  --shadow-btn: 0 6px 16px var(--accent-shadow);
+
+  --font: 'Source Sans 3', -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root[data-theme='dark'] {
+  --canvas: #0e1116;
+  --surface: #171c24;
+  --surface-border: #273040;
+  --row-divider: #222a36;
+  --chip-bg: #232b37;
+
+  --ink: #f2f4f8;
+  --ink-settled: #c6cdd8;
+  --ink-secondary: #98a2b3;
+  --ink-tertiary: #5f6b7c;
+  --ink-faint: #4a5568;
+
+  --accent: #7ea6f4;
+  --accent-deep: #24457f;
+  --accent-tint: #1e2a40;
+  --accent-tint-border: #2f4568;
+  --accent-shadow: rgba(0, 0, 0, 0.5);
+
+  --outstanding-bg: #18202e;
+  --outstanding-border: #24334a;
+  --outstanding-selected: #1e2a40;
+  --outstanding-selected-border: #2f4568;
+  --dashed-ring: #4a5c7c;
+
+  --expense: #f97066;
+  --income: #3fcb8a;
+  --transfer-ink: #98a2b3;
+  --balanced: #0e5c3f;
+  --balanced-soft: #a5d9c2;
+  --income-tint: #12331f;
+  --reconcile-soft: #a9c0e8;
+
+  --seg-bg: #232b37;
+  --toggle-off: #37414f;
+
+  --check-on-disc: #0e1116;
+
+  --shadow-fab: 0 8px 20px rgba(0, 0, 0, 0.5);
+  --shadow-btn: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
