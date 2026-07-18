@@ -47,3 +47,6 @@ example
 
 # PWA build
 dev-dist/
+
+# Firebase deploy cache
+.firebase/
