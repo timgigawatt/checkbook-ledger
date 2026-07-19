@@ -282,6 +282,7 @@ export function Register() {
                   }}
                 >
                   {[
+                    { label: 'Insights', to: '/insights' },
                     { label: 'Accounts', to: '/accounts' },
                     { label: 'Payees', to: '/payees' },
                     { label: 'Settings', to: '/settings' },

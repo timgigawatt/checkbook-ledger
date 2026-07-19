@@ -7,6 +7,7 @@ import { SignIn } from './screens/SignIn'
 import { Register } from './screens/Register'
 import { TxnForm } from './screens/TxnForm'
 import { Accounts, AccountForm } from './screens/Accounts'
+import { Insights } from './screens/Insights'
 import { Payees } from './screens/Payees'
 import { Settings } from './screens/Settings'
 import { ImportScreen } from './screens/Import'
@@ -30,6 +31,7 @@ function Routed() {
         <Route path="/" element={<Register />} />
         <Route path="/txn/:id" element={<TxnForm />} />
         <Route path="/txn/new" element={<TxnForm />} />
+        <Route path="/insights" element={<Insights />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/accounts/:id" element={<AccountForm />} />
         <Route path="/payees" element={<Payees />} />
