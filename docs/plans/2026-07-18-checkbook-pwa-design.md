@@ -23,9 +23,11 @@ the design supplies the UI and design system.
 ## Product scope (v1)
 
 - Multiple accounts with name + opening balance; account switcher; archive.
-- Register per account: Outstanding / Cleared sections, month navigation,
-  per-row running balance, Balance / Cleared / Outstanding summary header,
-  hide-cleared toggle, search, FAB add, empty state ("Set opening balance").
+- Register per account: one chronological list with cleared and uncleared
+  interleaved (revised 2026-07-18; the disc icon carries the state), month
+  navigation, per-row running balance, Balance / Cleared / Outstanding
+  summary header, hide-cleared toggle, search, FAB add, empty state
+  ("Set opening balance"). Uncleared items stay visible in every month.
 - Transactions: expense | income | transfer; amount; payee with frequent-payee
   suggestion chips; category from a fixed built-in list (with icons); date;
   optional check # and memo; cleared flag. Edit and delete.
@@ -34,11 +36,12 @@ the design supplies the UI and design system.
 - Payees: auto-created on save; cache default category (pre-fill) and use
   count (ranks suggestions). Transactions store payeeId AND payeeName,
   fixing the Realm schema's name-text-only linkage.
-- Reconcile (design 1c): statement ending balance, check off items, live
-  difference remaining + progress, "Balanced to the penny" state; finish
-  stamps cleared/reconciledAt.
-- Batch select (design 2a): multi-select outstanding rows, live total,
-  "Mark cleared" or hand off to Reconcile.
+- Reconcile (revised 2026-07-18, replaces the statement-balance wizard and
+  batch-select screen): the register itself is the staging surface. Tapping
+  an uncleared item's disc stages it (outlined-check indicator + tinted
+  row); a commit bar shows the staged total and cleared-if-committed figure;
+  the Reconcile action marks everything staged cleared + reconciledAt.
+  Tapping a cleared disc un-clears immediately.
 - PWA: manifest, service worker (vite-plugin-pwa), installable, offline via
   Firestore persistent local cache. Light + dark theme per design.
 
