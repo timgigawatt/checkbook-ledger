@@ -6,13 +6,15 @@ import { useToast } from '../context/ToastContext'
 import {
   accountBalances,
   matchesSearch,
-  registerSections,
+  registerOrder,
   runningBalances,
+  selectionTotal,
   touchesAccount,
 } from '../lib/ledger'
 import { categoryLabel } from '../lib/categories'
 import { inMonth, monthLabel } from '../lib/dates'
-import { saveTxn } from '../data/repo'
+import { saveTxn, setTxnsCleared } from '../data/repo'
+import { formatCents } from '../lib/money'
 import { SummaryHeader } from '../components/SummaryHeader'
 import { TxnRow } from '../components/TxnRow'
 import {
@@ -36,6 +38,8 @@ export function Register() {
   const [search, setSearch] = useState('')
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [staged, setStaged] = useState<Set<string>>(new Set())
+  const [committing, setCommitting] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const account = accounts.find((a) => a.id === selectedAccountId) ?? null
@@ -56,21 +60,28 @@ export function Register() {
 
   const searching = searchOpen && search.trim() !== ''
 
+  // One mixed list, newest first. Uncleared items stay visible in every
+  // month (that's the point of a checkbook); cleared history pages by month.
   const visible = useMemo(() => {
-    if (!account) return { outstanding: [] as Txn[], cleared: [] as Txn[] }
-    const { outstanding, cleared } = registerSections(accountTxns)
-    const bySearch = (t: Txn) =>
-      matchesSearch(t, search, categoryLabel(t.categoryId, t.categoryName))
+    if (!account) return [] as Txn[]
+    const ordered = registerOrder(accountTxns)
     if (searching) {
-      return { outstanding: outstanding.filter(bySearch), cleared: cleared.filter(bySearch) }
+      return ordered.filter((t) =>
+        matchesSearch(t, search, categoryLabel(t.categoryId, t.categoryName)),
+      )
     }
-    // Outstanding items stay visible regardless of month — that's the point
-    // of a checkbook. The cleared history is what the month filter pages.
-    return {
-      outstanding,
-      cleared: cleared.filter((t) => inMonth(t.date, month.year, month.month)),
-    }
-  }, [account, accountTxns, month, searching, search])
+    return ordered.filter(
+      (t) =>
+        (!t.cleared || inMonth(t.date, month.year, month.month)) &&
+        (!hideCleared || !t.cleared),
+    )
+  }, [account, accountTxns, month, searching, search, hideCleared])
+
+  const stagedTxns = useMemo(
+    () => accountTxns.filter((t) => !t.cleared && staged.has(t.id)),
+    [accountTxns, staged],
+  )
+  const stagedTotal = account ? selectionTotal(stagedTxns, account.id) : 0
 
   if (!ready) {
     return (
@@ -90,21 +101,39 @@ export function Register() {
       ? (accountNames.get(t.transferAccountId ?? '') ?? 'account')
       : (accountNames.get(t.accountId) ?? 'account')
 
-  async function toggleCleared(t: Txn) {
+  function toggleStage(t: Txn) {
+    setStaged((prev) => {
+      const next = new Set(prev)
+      if (next.has(t.id)) next.delete(t.id)
+      else next.add(t.id)
+      return next
+    })
+  }
+
+  async function unclear(t: Txn) {
     if (!user) return
     const { id, createdAt, updatedAt, ...rest } = t
     void createdAt
     void updatedAt
-    await saveTxn(
-      user.uid,
-      {
-        ...rest,
-        cleared: !t.cleared,
-        clearedAt: !t.cleared ? Date.now() : undefined,
-      },
-      id,
-    )
-    toast(!t.cleared ? 'Marked cleared' : 'Marked outstanding')
+    await saveTxn(user.uid, { ...rest, cleared: false, clearedAt: undefined }, id)
+    toast('Marked outstanding')
+  }
+
+  async function commitReconcile() {
+    if (!user || stagedTxns.length === 0) {
+      toast('Tap the circle on outstanding items first')
+      return
+    }
+    setCommitting(true)
+    try {
+      await setTxnsCleared(user.uid, stagedTxns.map((t) => t.id), true)
+      toast(
+        `Reconciled ${stagedTxns.length} transaction${stagedTxns.length === 1 ? '' : 's'}`,
+      )
+      setStaged(new Set())
+    } finally {
+      setCommitting(false)
+    }
   }
 
   function shiftMonth(delta: number) {
@@ -115,9 +144,10 @@ export function Register() {
   }
 
   const isEmpty = accountTxns.length === 0
+  const hasStaged = stagedTxns.length > 0
 
   return (
-    <div className="app-shell" style={{ paddingBottom: 110 }}>
+    <div className="app-shell" style={{ paddingBottom: hasStaged ? 170 : 110 }}>
       <div className="screen-head">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ position: 'relative' }}>
@@ -158,6 +188,7 @@ export function Register() {
                       onClick={() => {
                         selectAccount(a.id)
                         setAccountMenuOpen(false)
+                        setStaged(new Set())
                       }}
                       style={{
                         display: 'block',
@@ -251,7 +282,6 @@ export function Register() {
                   }}
                 >
                   {[
-                    { label: 'Select outstanding…', to: '/select' },
                     { label: 'Accounts', to: '/accounts' },
                     { label: 'Payees', to: '/payees' },
                     { label: 'Settings', to: '/settings' },
@@ -334,9 +364,13 @@ export function Register() {
           </button>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="filter-chip active" onClick={() => navigate('/reconcile')}>
+          <button
+            className={`filter-chip ${hasStaged ? 'active' : ''}`}
+            onClick={() => void commitReconcile()}
+            disabled={committing}
+          >
             <ReconcileIcon />
-            Reconcile
+            Reconcile{hasStaged ? ` · ${stagedTxns.length}` : ''}
           </button>
           <button
             className={`filter-chip ${hideCleared ? 'active' : ''}`}
@@ -351,66 +385,90 @@ export function Register() {
       <div style={{ flex: 1, padding: '6px 12px 0' }}>
         {isEmpty ? (
           <EmptyState accountId={account.id} />
+        ) : visible.length === 0 ? (
+          <div
+            style={{
+              textAlign: 'center',
+              color: 'var(--ink-tertiary)',
+              fontSize: 14,
+              fontWeight: 600,
+              padding: '48px 24px',
+            }}
+          >
+            {searching
+              ? 'No transactions match your search.'
+              : `Nothing in ${monthLabel(month.year, month.month)}.`}
+          </div>
         ) : (
-          <>
-            {visible.outstanding.length > 0 && (
-              <>
-                <div className="section-label" style={{ paddingTop: 6 }}>
-                  Outstanding · {visible.outstanding.length}
-                </div>
-                <div className="card outstanding">
-                  {visible.outstanding.map((t) => (
-                    <TxnRow
-                      key={t.id}
-                      txn={t}
-                      accountId={account.id}
-                      runningBalanceCents={running.get(t.id)}
-                      transferPartnerName={t.type === 'transfer' ? partnerName(t) : undefined}
-                      onRowClick={() => navigate(`/txn/${t.id}`)}
-                      onDiscClick={() => void toggleCleared(t)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {!hideCleared && visible.cleared.length > 0 && (
-              <>
-                <div className="section-label">Cleared · {visible.cleared.length}</div>
-                <div className="card">
-                  {visible.cleared.map((t) => (
-                    <TxnRow
-                      key={t.id}
-                      txn={t}
-                      accountId={account.id}
-                      runningBalanceCents={running.get(t.id)}
-                      transferPartnerName={t.type === 'transfer' ? partnerName(t) : undefined}
-                      onRowClick={() => navigate(`/txn/${t.id}`)}
-                      onDiscClick={() => void toggleCleared(t)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {visible.outstanding.length === 0 && (hideCleared || visible.cleared.length === 0) && (
-              <div
-                style={{
-                  textAlign: 'center',
-                  color: 'var(--ink-tertiary)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  padding: '48px 24px',
-                }}
-              >
-                {searching
-                  ? 'No transactions match your search.'
-                  : `Nothing in ${monthLabel(month.year, month.month)}.`}
-              </div>
-            )}
-          </>
+          <div className="card" style={{ marginTop: 6 }}>
+            {visible.map((t) => (
+              <TxnRow
+                key={t.id}
+                txn={t}
+                accountId={account.id}
+                runningBalanceCents={running.get(t.id)}
+                transferPartnerName={t.type === 'transfer' ? partnerName(t) : undefined}
+                staged={staged.has(t.id)}
+                onRowClick={() => navigate(`/txn/${t.id}`)}
+                onDiscClick={() => (t.cleared ? void unclear(t) : toggleStage(t))}
+              />
+            ))}
+          </div>
         )}
       </div>
+
+      {/* staged commit bar */}
+      {hasStaged && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '100%',
+            maxWidth: 520,
+            background: 'var(--surface)',
+            borderTop: '1px solid var(--surface-border)',
+            padding: '12px 16px calc(16px + env(safe-area-inset-bottom))',
+            zIndex: 25,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 10,
+            }}
+          >
+            <div className="num" style={{ fontSize: 14, fontWeight: 700 }}>
+              {stagedTxns.length} staged · {formatCents(stagedTotal)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div className="num" style={{ fontSize: 13, color: 'var(--ink-tertiary)' }}>
+                Cleared if committed{' '}
+                <span style={{ fontWeight: 700, color: 'var(--ink)' }}>
+                  {balances ? formatCents(balances.clearedCents + stagedTotal) : ''}
+                </span>
+              </div>
+              <button
+                onClick={() => setStaged(new Set())}
+                style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-secondary)' }}
+              >
+                Deselect
+              </button>
+            </div>
+          </div>
+          <button
+            className="btn-primary"
+            style={{ height: 50, borderRadius: 14, fontSize: 16 }}
+            disabled={committing}
+            onClick={() => void commitReconcile()}
+          >
+            Reconcile — mark {stagedTxns.length} cleared
+          </button>
+        </div>
+      )}
 
       <button className="fab" aria-label="Add transaction" onClick={() => navigate('/txn/new')}>
         <PlusIcon color="var(--check-on-disc)" />

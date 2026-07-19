@@ -62,32 +62,12 @@ export function runningBalances(account: Account, txns: Txn[]): Map<string, numb
   return out
 }
 
-export interface RegisterSections {
-  outstanding: Txn[]
-  cleared: Txn[]
-}
-
-/** Newest first within each section. */
-export function registerSections(txns: Txn[]): RegisterSections {
-  const sorted = [...txns].sort((a, b) => chronological(b, a))
-  return {
-    outstanding: sorted.filter((t) => !t.cleared),
-    cleared: sorted.filter((t) => t.cleared),
-  }
-}
-
 /**
- * Reconcile difference: statement ending balance minus (cleared balance +
- * effects of the items checked so far). Zero means balanced.
+ * Register order: one mixed list, newest first, cleared and uncleared
+ * interleaved by date (the disc icon carries the state).
  */
-export function reconcileDifference(
-  statementCents: number,
-  clearedCents: number,
-  checked: Txn[],
-  accountId: string,
-): number {
-  const checkedSum = checked.reduce((sum, t) => sum + effectOn(t, accountId), 0)
-  return statementCents - (clearedCents + checkedSum)
+export function registerOrder(txns: Txn[]): Txn[] {
+  return [...txns].sort((a, b) => chronological(b, a))
 }
 
 /** Sum of effects for a batch selection, for the live total in the select bar. */

@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   accountBalances,
   effectOn,
-  reconcileDifference,
-  registerSections,
+  registerOrder,
   runningBalances,
   selectionTotal,
 } from './ledger'
@@ -96,26 +95,22 @@ describe('runningBalances', () => {
   })
 })
 
-describe('registerSections', () => {
-  it('splits by cleared state, newest first', () => {
+describe('registerOrder', () => {
+  it('keeps cleared and uncleared interleaved by date, newest first', () => {
     const older = txn({ date: 1, cleared: true })
-    const newer = txn({ date: 2, cleared: true })
-    const open = txn({ date: 3, cleared: false })
-    const { outstanding, cleared } = registerSections([older, open, newer])
-    expect(outstanding.map((t) => t.id)).toEqual([open.id])
-    expect(cleared.map((t) => t.id)).toEqual([newer.id, older.id])
+    const open = txn({ date: 2, cleared: false })
+    const newer = txn({ date: 3, cleared: true })
+    expect(registerOrder([older, open, newer]).map((t) => t.id)).toEqual([
+      newer.id,
+      open.id,
+      older.id,
+    ])
   })
-})
 
-describe('reconcileDifference', () => {
-  it('reaches zero when checked items match the statement', () => {
-    const a = txn({ type: 'expense', amountCents: 1549, cleared: false })
-    const b = txn({ type: 'expense', amountCents: 20_000, cleared: false })
-    // cleared balance 214_350; statement says 192_801 (both items posted)
-    const statement = 214_350 - 1549 - 20_000
-    expect(reconcileDifference(statement, 214_350, [], 'checking')).toBe(-21_549)
-    expect(reconcileDifference(statement, 214_350, [a], 'checking')).toBe(-20_000)
-    expect(reconcileDifference(statement, 214_350, [a, b], 'checking')).toBe(0)
+  it('breaks same-day ties by creation order, newest first', () => {
+    const first = txn({ date: 5 })
+    const second = txn({ date: 5 })
+    expect(registerOrder([first, second]).map((t) => t.id)).toEqual([second.id, first.id])
   })
 })
 

@@ -7,16 +7,17 @@ import { ClearedDisc } from './ClearedDisc'
 import { TransferIcon } from './icons'
 
 /**
- * Register row per the component sheet: bold ink + tinted card while
- * outstanding, settled weight once cleared; expense −red, income +green,
- * transfers neutral with the paired-arrow glyph and no sign.
+ * Register row per the component sheet: bold ink + tinted row while
+ * outstanding, settled weight once cleared; staged-for-reconcile rows get
+ * the outlined-check disc and the selected tint; expense −red, income
+ * +green, transfers neutral with the paired-arrow glyph and no sign.
  */
 export function TxnRow({
   txn,
   accountId,
   runningBalanceCents,
   transferPartnerName,
-  selected,
+  staged,
   onRowClick,
   onDiscClick,
 }: {
@@ -24,7 +25,7 @@ export function TxnRow({
   accountId: string
   runningBalanceCents?: number
   transferPartnerName?: string
-  selected?: boolean
+  staged?: boolean
   onRowClick?: () => void
   onDiscClick?: () => void
 }) {
@@ -48,10 +49,15 @@ export function TxnRow({
     isTransfer ? 'Transfer' : categoryLabel(txn.categoryId, txn.categoryName),
   ].filter(Boolean)
 
-  const discState = selected ? 'selected' : txn.cleared ? 'cleared' : 'uncleared'
+  const discState = staged ? 'selected' : txn.cleared ? 'cleared' : 'uncleared'
+  const rowBackground = staged
+    ? 'var(--outstanding-selected)'
+    : txn.cleared
+      ? undefined
+      : 'var(--outstanding-bg)'
 
   return (
-    <div className="list-row" style={selected ? { background: 'var(--outstanding-selected)' } : undefined}>
+    <div className="list-row" style={rowBackground ? { background: rowBackground } : undefined}>
       <ClearedDisc state={discState} onClick={onDiscClick} />
       <button
         onClick={onRowClick}
