@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { dollarsToCents, formatCents, formatSigned, parseAmount, MINUS } from './money'
+import {
+  centsToEntry,
+  digitsToCents,
+  dollarsToCents,
+  formatCents,
+  formatSigned,
+  parseAmount,
+  MINUS,
+} from './money'
 
 describe('formatCents', () => {
   it('formats positive and negative amounts', () => {
@@ -30,6 +38,44 @@ describe('parseAmount', () => {
     expect(parseAmount('abc')).toBeNull()
     expect(parseAmount('0')).toBeNull()
     expect(parseAmount('1.2.3')).toBeNull()
+  })
+})
+
+describe('digitsToCents (ATM-style entry)', () => {
+  it('accumulates digits as cents from the right', () => {
+    expect(digitsToCents('18')).toBe(18) // $0.18
+    expect(digitsToCents('183')).toBe(183) // $1.83
+    expect(digitsToCents('18300')).toBe(18_300) // $183.00
+  })
+
+  it('strips formatting and non-digits from re-rendered values', () => {
+    expect(digitsToCents('1.83')).toBe(183)
+    expect(digitsToCents('1,234.56')).toBe(123_456)
+    expect(digitsToCents('abc')).toBeNull()
+    expect(digitsToCents('')).toBeNull()
+  })
+
+  it('keeps zero distinct from empty', () => {
+    expect(digitsToCents('0')).toBe(0)
+  })
+})
+
+describe('centsToEntry', () => {
+  it('renders the running cents display', () => {
+    expect(centsToEntry(18)).toBe('0.18')
+    expect(centsToEntry(183)).toBe('1.83')
+    expect(centsToEntry(123_456)).toBe('1,234.56')
+    expect(centsToEntry(5)).toBe('0.05')
+  })
+
+  it('round-trips with digitsToCents as the user types', () => {
+    // simulate typing 1, 8, 3 with the display re-fed through the sanitizer
+    let digits = ''
+    for (const key of ['1', '8', '3']) {
+      const display = digits ? centsToEntry(digitsToCents(digits)!) : ''
+      digits = (display + key).replace(/\D/g, '')
+    }
+    expect(digitsToCents(digits)).toBe(183)
   })
 })
 

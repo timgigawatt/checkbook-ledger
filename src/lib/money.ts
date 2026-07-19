@@ -33,3 +33,22 @@ export function parseAmount(input: string): number | null {
 export function dollarsToCents(dollars: number): number {
   return Math.round(dollars * 100)
 }
+
+/**
+ * ATM-style entry: typed digits accumulate as cents from the right.
+ * "18" → 18 (¢0.18), "183" → 183 ($1.83). Non-digits are stripped.
+ * Returns null when no digits remain.
+ */
+export function digitsToCents(raw: string): number | null {
+  const digits = raw.replace(/\D/g, '').slice(0, 12)
+  if (!digits) return null
+  return Number.parseInt(digits, 10)
+}
+
+/** Display string for ATM-style entry: 183 → "1.83", 123456 → "1,234.56". */
+export function centsToEntry(cents: number): string {
+  return (cents / 100).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}

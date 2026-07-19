@@ -10,7 +10,8 @@ import {
   registerSections,
   touchesAccount,
 } from '../lib/ledger'
-import { formatCents, parseAmount } from '../lib/money'
+import { digitsToCents, formatCents, MINUS } from '../lib/money'
+import { AmountInput } from '../components/AmountInput'
 import { categoryLabel } from '../lib/categories'
 import { shortDate } from '../lib/dates'
 import { formatSigned } from '../lib/money'
@@ -45,7 +46,8 @@ export function Reconcile() {
     [account, accountTxns],
   )
 
-  const [statementText, setStatementText] = useState('')
+  const [statementDigits, setStatementDigits] = useState('')
+  const [statementNegative, setStatementNegative] = useState(false)
   const [statementCents, setStatementCents] = useState<number | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set(preselected))
   const [finishing, setFinishing] = useState(false)
@@ -87,8 +89,7 @@ export function Reconcile() {
 
   // Statement balance entry step
   if (statementCents === null) {
-    const parsed = parseAmount(statementText.replace(/^-/, ''))
-    const negative = statementText.trim().startsWith('-')
+    const parsed = digitsToCents(statementDigits)
     return (
       <div className="app-shell">
         <div style={{ background: 'var(--accent-deep)', padding: '18px 16px 22px' }}>
@@ -112,30 +113,61 @@ export function Reconcile() {
           </div>
           <div className="card" style={{ padding: '14px 16px 16px', textAlign: 'center' }}>
             <div className="eyebrow soft">Statement ending balance</div>
-            <input
-              className="num"
-              autoFocus
-              inputMode="decimal"
-              placeholder="$0.00"
-              value={statementText}
-              onChange={(e) => setStatementText(e.target.value)}
+            <div
               style={{
-                fontSize: 40,
-                fontWeight: 700,
-                color: 'var(--ink)',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                textAlign: 'center',
-                width: '100%',
-                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2,
+                color: statementNegative ? 'var(--expense)' : 'var(--ink)',
               }}
-            />
+            >
+              {statementNegative && (
+                <span className="num" style={{ fontSize: 40, fontWeight: 700 }}>
+                  {MINUS}
+                </span>
+              )}
+              <AmountInput
+                className="num"
+                ariaLabel="Statement ending balance"
+                autoFocus
+                digits={statementDigits}
+                onDigitsChange={setStatementDigits}
+                onMinus={() => setStatementNegative((n) => !n)}
+                style={{
+                  fontSize: 40,
+                  fontWeight: 700,
+                  color: 'inherit',
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  textAlign: 'center',
+                  width: '60%',
+                  padding: 0,
+                }}
+              />
+            </div>
+            <button
+              onClick={() => setStatementNegative((n) => !n)}
+              style={{
+                marginTop: 6,
+                fontSize: 13,
+                fontWeight: 700,
+                color: 'var(--accent)',
+                padding: '4px 10px',
+                borderRadius: 10,
+                background: 'var(--accent-tint)',
+              }}
+            >
+              ± Negative balance
+            </button>
           </div>
           <button
             className="btn-primary"
             disabled={parsed === null}
-            onClick={() => parsed !== null && setStatementCents(negative ? -parsed : parsed)}
+            onClick={() =>
+              parsed !== null && setStatementCents(statementNegative ? -parsed : parsed)
+            }
           >
             Start reconciling
           </button>

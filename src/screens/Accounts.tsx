@@ -5,7 +5,8 @@ import { useData } from '../context/DataContext'
 import { useToast } from '../context/ToastContext'
 import { createAccount, updateAccount } from '../data/repo'
 import { accountBalances, touchesAccount } from '../lib/ledger'
-import { formatCents, parseAmount } from '../lib/money'
+import { digitsToCents, formatCents, MINUS } from '../lib/money'
+import { AmountInput } from '../components/AmountInput'
 import { SheetHeader } from '../components/controls'
 import { ChevronRight, PlusIcon } from '../components/icons'
 
@@ -111,8 +112,11 @@ export function AccountForm() {
 
   const account = isNew ? null : (accounts.find((a) => a.id === id) ?? null)
   const [name, setName] = useState(account?.name ?? '')
-  const [openingText, setOpeningText] = useState(
-    account ? (account.openingBalanceCents / 100).toFixed(2) : '',
+  const [openingDigits, setOpeningDigits] = useState(
+    account ? String(Math.abs(account.openingBalanceCents)) : '',
+  )
+  const [openingNegative, setOpeningNegative] = useState(
+    (account?.openingBalanceCents ?? 0) < 0,
   )
   const [busy, setBusy] = useState(false)
 
@@ -121,13 +125,12 @@ export function AccountForm() {
     return null
   }
 
-  const negative = openingText.trim().startsWith('-')
-  const parsed = parseAmount(openingText.replace(/^-/, ''))
-  const openingCents = openingText.trim() === '' ? 0 : parsed !== null ? (negative ? -parsed : parsed) : null
-  const canSave = name.trim() !== '' && openingCents !== null
+  const parsed = digitsToCents(openingDigits)
+  const openingCents = parsed === null ? 0 : openingNegative ? -parsed : parsed
+  const canSave = name.trim() !== ''
 
   async function onSave() {
-    if (!user || !canSave || openingCents === null) return
+    if (!user || !canSave) return
     setBusy(true)
     try {
       if (isNew) {
@@ -187,18 +190,49 @@ export function AccountForm() {
           </div>
           <div className="field-row">
             <div className="label">Opening balance</div>
-            <input
-              className="num"
-              inputMode="decimal"
-              value={openingText}
-              onChange={(e) => setOpeningText(e.target.value)}
-              placeholder="$0.00"
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              <button
+                onClick={() => setOpeningNegative((n) => !n)}
+                aria-label="Toggle negative balance"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: openingNegative ? 'var(--expense)' : 'var(--ink-tertiary)',
+                  padding: '4px 8px',
+                  borderRadius: 8,
+                  background: openingNegative ? 'transparent' : 'var(--chip-bg)',
+                  border: openingNegative ? '1px solid var(--expense)' : '1px solid transparent',
+                  flex: '0 0 auto',
+                }}
+              >
+                {openingNegative ? MINUS : '±'}
+              </button>
+              <AmountInput
+                className="num"
+                ariaLabel="Opening balance"
+                digits={openingDigits}
+                onDigitsChange={setOpeningDigits}
+                onMinus={() => setOpeningNegative((n) => !n)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  textAlign: 'right',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: openingNegative ? 'var(--expense)' : 'var(--ink)',
+                  flex: 1,
+                  minWidth: 0,
+                  outline: 'none',
+                  padding: '12px 0',
+                }}
+              />
+            </div>
           </div>
         </div>
         <div style={{ fontSize: 13, color: 'var(--ink-tertiary)', padding: '0 4px', lineHeight: 1.5 }}>
           Set the opening balance to your bank's current balance so the register matches
-          from day one. Use a minus sign if the account starts overdrawn.
+          from day one. Digits fill in as cents — type 18300 for $183.00. Tap ± if the
+          account starts overdrawn.
         </div>
         {!isNew && account && (
           <button

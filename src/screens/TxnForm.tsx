@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useData } from '../context/DataContext'
@@ -11,7 +11,8 @@ import {
   TRANSFER_CATEGORY_ID,
   getCategory,
 } from '../lib/categories'
-import { MINUS, parseAmount } from '../lib/money'
+import { centsToEntry, digitsToCents, MINUS } from '../lib/money'
+import { AmountInput } from '../components/AmountInput'
 import { friendlyDate, fromDateInput, startOfDay, toDateInput, todayMs } from '../lib/dates'
 import { FieldRow, SheetHeader, Switch } from '../components/controls'
 import { ChevronRight, TransferIcon } from '../components/icons'
@@ -30,8 +31,8 @@ export function TxnForm() {
   )
 
   const [type, setType] = useState<TxnType>(editing?.type ?? 'expense')
-  const [amountText, setAmountText] = useState(
-    editing ? (editing.amountCents / 100).toFixed(2) : '',
+  const [amountDigits, setAmountDigits] = useState(
+    editing ? String(editing.amountCents) : '',
   )
   const [payeeName, setPayeeName] = useState(editing?.payeeName ?? '')
   const [categoryId, setCategoryId] = useState(
@@ -52,9 +53,18 @@ export function TxnForm() {
   const [busy, setBusy] = useState(false)
   const amountRef = useRef<HTMLInputElement>(null)
 
-  const amountCents = parseAmount(amountText)
+  // When the form is opened by deep link or refresh, the accounts snapshot
+  // can arrive after mount — backfill the default account once it does.
+  useEffect(() => {
+    if (!accountId && accounts.length > 0) {
+      setAccountId(selectedAccountId ?? accounts[0].id)
+    }
+  }, [accountId, accounts, selectedAccountId])
+
+  const amountCents = digitsToCents(amountDigits)
   const canSave =
     amountCents !== null &&
+    amountCents > 0 &&
     accountId !== '' &&
     (type === 'transfer'
       ? transferAccountId !== '' && transferAccountId !== accountId
@@ -218,13 +228,13 @@ export function TxnForm() {
           <span className="num" style={{ fontSize: 40, fontWeight: 700 }}>
             {amountPrefix}$
           </span>
-          <input
+          <AmountInput
             ref={amountRef}
             className="num"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={amountText}
-            onChange={(e) => setAmountText(e.target.value)}
+            ariaLabel="Amount"
+            autoFocus={!editing}
+            digits={amountDigits}
+            onDigitsChange={setAmountDigits}
             style={{
               fontSize: 40,
               fontWeight: 700,
@@ -232,7 +242,7 @@ export function TxnForm() {
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              width: `${Math.max(4, amountText.length + 1)}ch`,
+              width: `${Math.max(4, (amountCents === null ? 0 : centsToEntry(amountCents).length) + 1)}ch`,
               maxWidth: '60vw',
               padding: 0,
             }}
