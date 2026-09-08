@@ -163,6 +163,7 @@ textarea {
   padding: 8px 14px 8px 6px;
   width: 100%;
   text-align: left;
+  transition: background 0.5s ease;
 }
 
 .list-row + .list-row {

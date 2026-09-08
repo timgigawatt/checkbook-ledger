@@ -34,6 +34,41 @@ export function inMonth(ms: number, year: number, month: number): boolean {
   return d.getFullYear() === year && d.getMonth() === month
 }
 
+/** Half-open range: startMs inclusive, endMs exclusive. */
+export interface DateRange {
+  startMs: number
+  endMs: number
+}
+
+export function monthRange(year: number, month: number): DateRange {
+  return {
+    startMs: new Date(year, month, 1).getTime(),
+    endMs: new Date(year, month + 1, 1).getTime(),
+  }
+}
+
+export function inRange(ms: number, range: DateRange): boolean {
+  return ms >= range.startMs && ms < range.endMs
+}
+
+/** "Jun 1 – Sep 8, 2026" (years shown on both ends when they differ). */
+export function rangeLabel(range: DateRange): string {
+  const start = new Date(range.startMs)
+  const end = new Date(range.endMs - 1) // last covered day
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const startLabel = start.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+  const endLabel = end.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  return `${startLabel} – ${endLabel}`
+}
+
 /** yyyy-mm-dd for <input type="date">, in local time. */
 export function toDateInput(ms: number): string {
   const d = new Date(ms)

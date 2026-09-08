@@ -12,6 +12,7 @@ import {
   getCategory,
 } from '../lib/categories'
 import { centsToEntry, digitsToCents, MINUS } from '../lib/money'
+import { titleCase } from '../lib/text'
 import { AmountInput } from '../components/AmountInput'
 import { friendlyDate, fromDateInput, startOfDay, toDateInput, todayMs } from '../lib/dates'
 import { FieldRow, SheetHeader, Switch } from '../components/controls'
@@ -52,6 +53,22 @@ export function TxnForm() {
   const [picker, setPicker] = useState<'category' | 'account' | 'toAccount' | null>(null)
   const [busy, setBusy] = useState(false)
   const amountRef = useRef<HTMLInputElement>(null)
+  const payeeRef = useRef<HTMLInputElement>(null)
+
+  // Title-case as typed. When a letter actually got uppercased the value
+  // React writes back differs from the DOM, which resets the caret — put it
+  // back via microtask so the fix lands before the next keystroke. When the
+  // string is unchanged React leaves the DOM alone and the caret is fine.
+  function onPayeeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const el = e.target
+    const cased = titleCase(el.value)
+    const caret = el.selectionStart
+    const changed = cased !== el.value
+    setPayeeName(cased)
+    if (changed && caret !== null) {
+      queueMicrotask(() => el.setSelectionRange(caret, caret))
+    }
+  }
 
   // When the form is opened by deep link or refresh, the accounts snapshot
   // can arrive after mount — backfill the default account once it does.
@@ -209,6 +226,66 @@ export function TxnForm() {
         })}
       </div>
 
+      {/* payee — the first thing you enter, as prominent as the amount */}
+      {type !== 'transfer' && (
+        <div
+          className="card"
+          onClick={() => payeeRef.current?.focus()}
+          style={{ margin: '12px 16px 0', padding: '14px 16px 16px', textAlign: 'center' }}
+        >
+          <div className="eyebrow soft">Payee</div>
+          <input
+            ref={payeeRef}
+            value={payeeName}
+            onChange={onPayeeChange}
+            placeholder="Who was paid?"
+            aria-label="Payee"
+            autoFocus={!editing}
+            autoCapitalize="words"
+            style={{
+              width: '100%',
+              border: 'none',
+              background: 'transparent',
+              outline: 'none',
+              textAlign: 'center',
+              fontSize: 26,
+              fontWeight: 700,
+              color: 'var(--ink)',
+              padding: '4px 0 0',
+            }}
+          />
+          {suggestions.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                marginTop: 10,
+                overflowX: 'auto',
+                justifyContent: 'safe center',
+              }}
+            >
+              {suggestions.map((p) => (
+                <button
+                  key={p.id}
+                  className="chip"
+                  style={
+                    p.nameLower === payeeName.trim().toLowerCase()
+                      ? { fontWeight: 700 }
+                      : undefined
+                  }
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    pickPayee(p.name)
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* amount */}
       <button
         className="card"
@@ -232,7 +309,7 @@ export function TxnForm() {
             ref={amountRef}
             className="num"
             ariaLabel="Amount"
-            autoFocus={!editing}
+            autoFocus={!editing && type === 'transfer'}
             digits={amountDigits}
             onDigitsChange={setAmountDigits}
             style={{
@@ -252,58 +329,6 @@ export function TxnForm() {
 
       {/* fields */}
       <div className="card field-rows" style={{ margin: '12px 16px 0' }}>
-        {type !== 'transfer' && (
-          <div style={{ padding: '10px 16px 12px' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                minHeight: 30,
-                gap: 12,
-              }}
-            >
-              <div style={{ fontSize: 15, color: 'var(--ink-secondary)', flex: '0 0 auto' }}>
-                Payee
-              </div>
-              <input
-                value={payeeName}
-                onChange={(e) => setPayeeName(e.target.value)}
-                placeholder="Who was paid?"
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  textAlign: 'right',
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: 'var(--ink)',
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              />
-            </div>
-            {suggestions.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 6, overflowX: 'auto' }}>
-                {suggestions.map((p) => (
-                  <button
-                    key={p.id}
-                    className="chip"
-                    style={
-                      p.nameLower === payeeName.trim().toLowerCase()
-                        ? { fontWeight: 700 }
-                        : undefined
-                    }
-                    onClick={() => pickPayee(p.name)}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {type !== 'transfer' && (
           <FieldRow label="Category" onClick={() => setPicker('category')}>
             {getCategory(categoryId).icon} {getCategory(categoryId).name}

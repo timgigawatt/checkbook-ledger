@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   accountBalances,
   effectOn,
+  monthGroups,
   registerOrder,
   runningBalances,
   selectionTotal,
@@ -111,6 +112,22 @@ describe('registerOrder', () => {
     const first = txn({ date: 5 })
     const second = txn({ date: 5 })
     expect(registerOrder([first, second]).map((t) => t.id)).toEqual([second.id, first.id])
+  })
+})
+
+describe('monthGroups', () => {
+  it('buckets by calendar month, newest month first', () => {
+    const july = txn({ date: new Date(2026, 6, 4).getTime() })
+    const sept1 = txn({ date: new Date(2026, 8, 2).getTime() })
+    const sept2 = txn({ date: new Date(2026, 8, 20).getTime() })
+    const groups = monthGroups([july, sept1, sept2])
+    expect(groups.map((g) => `${g.year}-${g.month}`)).toEqual(['2026-8', '2026-6'])
+    expect(groups[0].txns.map((t) => t.id)).toEqual([sept2.id, sept1.id])
+    expect(groups[1].txns.map((t) => t.id)).toEqual([july.id])
+  })
+
+  it('returns nothing for an empty register', () => {
+    expect(monthGroups([])).toEqual([])
   })
 })
 

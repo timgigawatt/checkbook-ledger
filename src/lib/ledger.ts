@@ -70,6 +70,30 @@ export function registerOrder(txns: Txn[]): Txn[] {
   return [...txns].sort((a, b) => chronological(b, a))
 }
 
+export interface MonthGroup {
+  year: number
+  month: number
+  txns: Txn[]
+}
+
+/**
+ * Register-ordered transactions bucketed by calendar month, newest month
+ * first, for the continuous-scroll register.
+ */
+export function monthGroups(txns: Txn[]): MonthGroup[] {
+  const groups: MonthGroup[] = []
+  for (const t of registerOrder(txns)) {
+    const d = new Date(t.date)
+    const last = groups[groups.length - 1]
+    if (last && last.year === d.getFullYear() && last.month === d.getMonth()) {
+      last.txns.push(t)
+    } else {
+      groups.push({ year: d.getFullYear(), month: d.getMonth(), txns: [t] })
+    }
+  }
+  return groups
+}
+
 /** Sum of effects for a batch selection, for the live total in the select bar. */
 export function selectionTotal(txns: Txn[], accountId: string): number {
   return txns.reduce((sum, t) => sum + effectOn(t, accountId), 0)

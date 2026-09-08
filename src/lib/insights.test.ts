@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { monthlyCashflow, spendingByCategory, topPayees } from './insights'
+import {
+  cashflowTotals,
+  categoryTxns,
+  monthlyCashflow,
+  spendingByCategory,
+  topPayees,
+} from './insights'
+import { monthRange } from './dates'
 import type { Txn } from '../types'
 
 let seq = 0
@@ -21,8 +28,10 @@ function txn(partial: Partial<Txn>): Txn {
   }
 }
 
+const JULY = monthRange(2026, 6)
+
 describe('spendingByCategory', () => {
-  it('groups month expenses by category, largest first', () => {
+  it('groups range expenses by category, largest first', () => {
     const result = spendingByCategory(
       [
         txn({ categoryId: 'cat_groceries', amountCents: 6000 }),
@@ -32,21 +41,51 @@ describe('spendingByCategory', () => {
         txn({ type: 'transfer', transferAccountId: 'savings', amountCents: 20_000 }),
         txn({ categoryId: 'cat_gas', date: new Date(2026, 5, 10).getTime() }), // June
       ],
-      2026,
-      6,
+      JULY,
     )
     expect(result).toHaveLength(2)
     expect(result[0]).toMatchObject({ label: 'Groceries', cents: 10_000, count: 2 })
     expect(result[1]).toMatchObject({ label: 'Gas', cents: 4820, count: 1 })
   })
 
+  it('spans multiple months when the range does', () => {
+    const result = spendingByCategory(
+      [
+        txn({ categoryId: 'cat_gas', amountCents: 100, date: new Date(2026, 5, 10).getTime() }),
+        txn({ categoryId: 'cat_gas', amountCents: 200, date: new Date(2026, 6, 10).getTime() }),
+      ],
+      { startMs: new Date(2026, 5, 1).getTime(), endMs: new Date(2026, 7, 1).getTime() },
+    )
+    expect(result[0]).toMatchObject({ label: 'Gas', cents: 300, count: 2 })
+  })
+
   it('preserves imported category names on unknown ids', () => {
     const result = spendingByCategory(
       [txn({ categoryId: 'cat_other', categoryName: 'Lawn Care', amountCents: 500 })],
-      2026,
-      6,
+      JULY,
     )
     expect(result[0].label).toBe('Lawn Care')
+  })
+})
+
+describe('categoryTxns', () => {
+  it('returns only the expenses behind one category row, newest first', () => {
+    const a = txn({ categoryId: 'cat_gas', date: new Date(2026, 6, 3).getTime() })
+    const b = txn({ categoryId: 'cat_gas', date: new Date(2026, 6, 20).getTime() })
+    const others = [
+      txn({ categoryId: 'cat_groceries' }),
+      txn({ categoryId: 'cat_gas', type: 'income' }),
+      txn({ categoryId: 'cat_gas', date: new Date(2026, 5, 20).getTime() }),
+    ]
+    const result = categoryTxns([a, ...others, b], JULY, 'cat_gas', 'Gas')
+    expect(result.map((t) => t.id)).toEqual([b.id, a.id])
+  })
+
+  it('separates imported labels sharing cat_other', () => {
+    const lawn = txn({ categoryId: 'cat_other', categoryName: 'Lawn Care' })
+    const misc = txn({ categoryId: 'cat_other' })
+    const result = categoryTxns([lawn, misc], JULY, 'cat_other', 'Lawn Care')
+    expect(result.map((t) => t.id)).toEqual([lawn.id])
   })
 })
 
@@ -76,8 +115,23 @@ describe('monthlyCashflow', () => {
   })
 })
 
+describe('cashflowTotals', () => {
+  it('totals income and spending inside the range, ignoring transfers', () => {
+    const result = cashflowTotals(
+      [
+        txn({ type: 'income', amountCents: 165_000 }),
+        txn({ amountCents: 5432 }),
+        txn({ amountCents: 100, date: new Date(2026, 5, 30).getTime() }), // June
+        txn({ type: 'transfer', transferAccountId: 's', amountCents: 20_000 }),
+      ],
+      JULY,
+    )
+    expect(result).toEqual({ inCents: 165_000, outCents: 5432 })
+  })
+})
+
 describe('topPayees', () => {
-  it('ranks month expense payees case-insensitively with a limit', () => {
+  it('ranks range expense payees case-insensitively with a limit', () => {
     const result = topPayees(
       [
         txn({ payeeName: 'Target', amountCents: 5000 }),
@@ -86,8 +140,7 @@ describe('topPayees', () => {
         txn({ payeeName: 'Costco', amountCents: 100 }),
         txn({ type: 'income', payeeName: 'Paycheck', amountCents: 165_000 }),
       ],
-      2026,
-      6,
+      JULY,
       2,
     )
     expect(result).toHaveLength(2)

@@ -18,6 +18,8 @@ export function TxnRow({
   runningBalanceCents,
   transferPartnerName,
   staged,
+  highlighted,
+  id,
   onRowClick,
   onDiscClick,
 }: {
@@ -26,6 +28,9 @@ export function TxnRow({
   runningBalanceCents?: number
   transferPartnerName?: string
   staged?: boolean
+  /** Flash tint for the row the user just came back from. */
+  highlighted?: boolean
+  id?: string
   onRowClick?: () => void
   onDiscClick?: () => void
 }) {
@@ -50,14 +55,20 @@ export function TxnRow({
   ].filter(Boolean)
 
   const discState = staged ? 'selected' : txn.cleared ? 'cleared' : 'uncleared'
-  const rowBackground = staged
-    ? 'var(--outstanding-selected)'
-    : txn.cleared
-      ? undefined
-      : 'var(--outstanding-bg)'
+  const rowBackground = highlighted
+    ? 'var(--accent-tint)'
+    : staged
+      ? 'var(--outstanding-selected)'
+      : txn.cleared
+        ? undefined
+        : 'var(--outstanding-bg)'
 
   return (
-    <div className="list-row" style={rowBackground ? { background: rowBackground } : undefined}>
+    <div
+      id={id}
+      className="list-row"
+      style={rowBackground ? { background: rowBackground } : undefined}
+    >
       <ClearedDisc state={discState} onClick={onDiscClick} />
       <button
         onClick={onRowClick}

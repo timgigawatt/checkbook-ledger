@@ -32,6 +32,7 @@ export const CATEGORIES: Category[] = [
   { id: 'cat_gifts', name: 'Gifts', icon: '🎁', kind: 'expense' },
   { id: 'cat_charity', name: 'Charity', icon: '❤️', kind: 'expense' },
   { id: 'cat_taxes', name: 'Taxes', icon: '🧾', kind: 'expense' },
+  { id: 'cat_ccpayment', name: 'Credit Card Payment', icon: '💳', kind: 'expense' },
   { id: 'cat_fees', name: 'Fees & Charges', icon: '🏷️', kind: 'expense' },
   { id: 'cat_income', name: 'Income', icon: '💵', kind: 'income' },
   { id: 'cat_paycheck', name: 'Paycheck', icon: '💰', kind: 'income' },
