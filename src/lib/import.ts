@@ -1,6 +1,6 @@
 import { dollarsToCents } from './money'
 import { getCategory, resolveImportedCategory, TRANSFER_CATEGORY_ID } from './categories'
-import { startOfDay } from './dates'
+import { fromDateInput, startOfDay } from './dates'
 
 /**
  * Mapping of the old Realm export (Checkbook - Account Tracker) onto the
@@ -86,6 +86,9 @@ function parseWhen(v: unknown): number | null {
   }
   const s = str(v)
   if (s) {
+    // Date.parse reads bare yyyy-mm-dd as UTC midnight, which lands the
+    // previous day in western timezones — parse it as a local date instead.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return fromDateInput(s)
     const parsed = Date.parse(s)
     if (!Number.isNaN(parsed)) return startOfDay(parsed)
   }

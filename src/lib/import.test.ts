@@ -104,6 +104,15 @@ describe('parseRealmJson', () => {
 })
 
 describe('parseCsvRows', () => {
+  it('reads yyyy-mm-dd as a local date, not UTC', () => {
+    const result = parseCsvRows([
+      { date: '2026-10-07', payee: 'Turo', amount: '21.34' },
+      { date: '10/07/2026', payee: 'Turo', amount: '21.34' },
+    ])
+    expect(result.txns[0].date).toBe(new Date(2026, 9, 7).getTime())
+    expect(result.txns[0].date).toBe(result.txns[1].date)
+  })
+
   it('maps typical CSV columns', () => {
     const result = parseCsvRows([
       { date: '2026-07-11', payee: 'Costco', amount: '172.24', category: 'Groceries', cleared: 'no' },
